@@ -44,10 +44,13 @@ def process_runs():
 
 
 def main():
+    # python-telegram-bot run_polling() must run on the main thread (signal handlers).
     if settings.telegram_bot_token and settings.telegram_polling:
-        t = threading.Thread(target=run_telegram_polling, daemon=True)
+        t = threading.Thread(target=process_runs, daemon=True)
         t.start()
-    process_runs()
+        run_telegram_polling()
+    else:
+        process_runs()
 
 
 if __name__ == "__main__":

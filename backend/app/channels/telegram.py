@@ -69,12 +69,16 @@ async def _reply_with_agent(agent: Agent, user_text: str, db: Session, chat_id: 
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message:
+        return
     chat_id = str(update.effective_chat.id)
-    await update.message.reply_text(
-        f"AI Orchestrator bot ready.\nChat ID: `{chat_id}`\n"
-        "Bind this chat to an agent in the web UI (Channels tab) or POST /api/telegram/bind",
-        parse_mode="Markdown",
+    text = (
+        f"AI Orchestrator bot ready.\n\n"
+        f"Your chat_id: {chat_id}\n\n"
+        "Bind this chat to an agent in the web UI (Agents → Channels) "
+        "or POST /api/telegram/bind"
     )
+    await update.message.reply_text(text)
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
