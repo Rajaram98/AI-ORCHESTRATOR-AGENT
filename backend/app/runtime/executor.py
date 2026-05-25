@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.models.agent import Agent
+from app.models.message import Message
 from app.models.run import Run, RunEvent, RunStep
 from app.models.workflow import Workflow
 from app.runtime.compiler import compile_workflow
@@ -35,6 +36,8 @@ def execute_run(db: Session, run_id: UUID) -> Run:
     run = db.query(Run).filter(Run.id == run_id).first()
     if not run:
         raise ValueError(f"Run {run_id} not found")
+    if run.status in ("running", "completed"):
+        return run
 
     workflow = db.query(Workflow).filter(Workflow.id == run.workflow_id).first()
     if not workflow:
@@ -86,7 +89,9 @@ def execute_run(db: Session, run_id: UUID) -> Run:
             "current_node": "",
         }
 
-        result = compiled.invoke(initial_state)
+        node_count = len([n for n in definition.get("nodes", []) if n.get("type") == "agent"])
+        recursion_limit = max(max_iter, node_count * 3, 10)
+        result = compiled.invoke(initial_state, config={"recursion_limit": recursion_limit})
 
         prompt_tokens = 0
         completion_tokens = 0
@@ -96,23 +101,24 @@ def execute_run(db: Session, run_id: UUID) -> Run:
             prompt_tokens += usage.get("prompt_tokens", 0)
             completion_tokens += usage.get("completion_tokens", 0)
 
-        for msg in result.get("messages", []):
-            content = msg.content if hasattr(msg, "content") else str(msg)
-            name = getattr(msg, "name", None) or "agent"
+        final_output = (result.get("last_agent_output") or "").strip()
+        if final_output:
+            db.query(Message).filter(Message.run_id == run_id).delete()
             persist_message(
                 db,
-                content=content,
+                content=final_output,
                 sender_type="agent",
-                sender_id=name,
+                sender_id="workflow",
                 channel="internal",
                 run_id=run_id,
                 thread_id=str(run_id),
+                metadata={"workflow_id": str(workflow.id)},
             )
             _log_event(
                 db,
                 run_id,
                 "agent_message",
-                {"sender": name, "preview": content[:200]},
+                {"sender": "workflow", "preview": final_output[:200]},
             )
 
         for step in db.query(RunStep).filter(RunStep.run_id == run_id).all():

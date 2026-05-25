@@ -61,6 +61,7 @@ export interface Message {
   channel: string;
   thread_id: string;
   created_at: string;
+  metadata?: { user_text?: string };
 }
 
 export const api = {

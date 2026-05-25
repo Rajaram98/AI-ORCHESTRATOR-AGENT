@@ -45,6 +45,11 @@ export default function MessagesPage() {
               </button>
             </div>
           </div>
+          {m.metadata?.user_text && (
+            <p style={{ marginTop: "0.5rem", color: "var(--muted)", fontSize: "0.85rem" }}>
+              <strong>You:</strong> {m.metadata.user_text}
+            </p>
+          )}
           <p style={{ marginTop: "0.5rem" }}>{m.content}</p>
           <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
             thread: {m.thread_id} · {new Date(m.created_at).toLocaleString()}

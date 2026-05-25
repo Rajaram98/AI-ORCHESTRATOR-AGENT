@@ -30,15 +30,6 @@ def _find_agent_for_chat(db: Session, chat_id: str) -> Agent | None:
 
 
 async def _reply_with_agent(agent: Agent, user_text: str, db: Session, chat_id: str) -> str:
-    persist_message(
-        db,
-        content=user_text,
-        sender_type="human",
-        sender_id=chat_id,
-        channel="telegram",
-        thread_id=f"telegram:{chat_id}",
-    )
-
     if not settings.openai_api_key:
         reply = f"[{agent.name}] Demo mode: set OPENAI_API_KEY for live responses. You said: {user_text}"
     else:
@@ -61,9 +52,10 @@ async def _reply_with_agent(agent: Agent, user_text: str, db: Session, chat_id: 
         db,
         content=reply,
         sender_type="agent",
-        sender_id=str(agent.id),
+        sender_id=agent.name,
         channel="telegram",
         thread_id=f"telegram:{chat_id}",
+        metadata={"user_text": user_text},
     )
     return reply
 

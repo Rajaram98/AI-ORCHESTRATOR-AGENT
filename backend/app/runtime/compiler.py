@@ -53,6 +53,13 @@ def _build_agent_node(agent: Agent, node_id: str):
         out_messages = result.get("messages", [])
         last = out_messages[-1] if out_messages else AIMessage(content="(no output)")
         content = last.content if hasattr(last, "content") else str(last)
+        if isinstance(content, list):
+            content = " ".join(
+                block.get("text", str(block)) if isinstance(block, dict) else str(block)
+                for block in content
+            )
+        else:
+            content = str(content)
         if len(content) > max_output:
             content = content[:max_output] + "..."
 
@@ -69,12 +76,16 @@ def _build_agent_node(agent: Agent, node_id: str):
     return node
 
 
-def _condition_router(edge_map: dict[str, str]):
+def _condition_router(route_labels: set[str]):
+    """Return a route *label* (e.g. 'default', 'revise'), not a node id or END."""
+
     def router(state: WorkflowState) -> str:
         output = (state.get("last_agent_output") or "").lower()
-        if "revise" in output or "retry" in output or "improve" in output:
-            return edge_map.get("revise", edge_map.get("default", END))
-        return edge_map.get("default", END)
+        if "revise" in route_labels and (
+            "revise" in output or "retry" in output or "improve" in output
+        ):
+            return "revise"
+        return "default"
 
     return router
 
@@ -126,17 +137,12 @@ def compile_workflow(
             graph.add_edge(src, tgt)
 
     for src, cond_edges in conditional_sources.items():
-        mapping = {}
+        mapping: dict[str, str] = {}
         for ce in cond_edges:
             label = ce.get("label", "default")
             t = ce["target"]
             mapping[label] = END if t == "end" else t
-        graph.add_conditional_edges(src, _condition_router(mapping), mapping)
-
-    def should_continue(state: WorkflowState) -> str:
-        if state.get("iteration_count", 0) >= max_iterations:
-            return END
-        return "continue"
+        graph.add_conditional_edges(src, _condition_router(set(mapping.keys())), mapping)
 
     graph.set_entry_point(entry)
     return graph.compile()
