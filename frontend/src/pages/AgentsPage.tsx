@@ -56,13 +56,60 @@ export default function AgentsPage() {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Agents</h2>
-        <button className="btn" onClick={() => setEditing({ ...empty })}>
+        <button
+          className="btn"
+          onClick={() => {
+            setTab("identity");
+            setEditing({ ...empty });
+          }}
+        >
           + New Agent
         </button>
       </div>
 
-      {editing && (
-        <div className="card">
+      <div className="agents-layout">
+        <div>
+          {agents.map((a) => (
+            <div
+              key={a.id}
+              className="card"
+              style={{
+                borderColor: editing?.id === a.id ? "var(--accent)" : undefined,
+              }}
+            >
+              <h3>{a.name}</h3>
+              <p style={{ color: "var(--muted)" }}>{a.role}</p>
+              <p style={{ fontSize: "0.85rem" }}>
+                Tools: {(a.tools || []).join(", ") || "none"}
+              </p>
+              <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setTab("identity");
+                    setEditing(a);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  className="btn btn-danger"
+                  onClick={async () => {
+                    if (editing?.id === a.id) setEditing(null);
+                    await api.agents.delete(a.id);
+                    load();
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {editing ? (
+        <div className="card agent-editor">
+          <h3 style={{ marginTop: 0 }}>{editing.id ? `Edit: ${editing.name}` : "New agent"}</h3>
           <div className="tabs">
             {["identity", "tools", "memory", "guardrails", "channels"].map((t) => (
               <button
@@ -102,9 +149,9 @@ export default function AgentsPage() {
           )}
 
           {tab === "tools" && (
-            <div>
+            <div className="tool-list">
               {tools.map((t) => (
-                <label key={t.name} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <label key={t.name} className="tool-option">
                   <input
                     type="checkbox"
                     checked={(editing.tools || []).includes(t.name)}
@@ -118,7 +165,10 @@ export default function AgentsPage() {
                       });
                     }}
                   />
-                  {t.name} — {t.description}
+                  <span className="tool-option-text">
+                    <span className="tool-option-name">{t.name}</span>
+                    <span className="tool-option-desc">{t.description}</span>
+                  </span>
                 </label>
               ))}
             </div>
@@ -197,30 +247,11 @@ export default function AgentsPage() {
             </button>
           </div>
         </div>
-      )}
-
-      <div className="grid-2">
-        {agents.map((a) => (
-          <div key={a.id} className="card">
-            <h3>{a.name}</h3>
-            <p style={{ color: "var(--muted)" }}>{a.role}</p>
-            <p style={{ fontSize: "0.85rem" }}>Tools: {(a.tools || []).join(", ") || "none"}</p>
-            <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem" }}>
-              <button className="btn btn-secondary" onClick={() => setEditing(a)}>
-                Edit
-              </button>
-              <button
-                className="btn btn-danger"
-                onClick={async () => {
-                  await api.agents.delete(a.id);
-                  load();
-                }}
-              >
-                Delete
-              </button>
-            </div>
+        ) : (
+          <div className="card" style={{ color: "var(--muted)" }}>
+            <p>Select an agent to edit, or create a new one.</p>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
