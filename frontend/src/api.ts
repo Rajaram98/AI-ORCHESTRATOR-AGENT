@@ -37,6 +37,7 @@ export interface WorkflowTemplate {
   name: string;
   description: string;
   definition: { nodes: unknown[]; edges: unknown[] };
+  is_builtin: boolean;
 }
 
 export interface Run {
@@ -83,6 +84,9 @@ export const api = {
     templates: () => request<WorkflowTemplate[]>("/api/workflows/templates"),
     fromTemplate: (slug: string) =>
       request<Workflow>(`/api/workflows/from-template/${slug}`, { method: "POST" }),
+    deleteTemplate: (slug: string) =>
+      request<void>(`/api/workflows/templates/${slug}`, { method: "DELETE" }),
+    delete: (id: string) => request<void>(`/api/workflows/${id}`, { method: "DELETE" }),
   },
   runs: {
     list: () => request<Run[]>("/api/runs"),

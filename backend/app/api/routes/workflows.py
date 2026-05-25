@@ -31,6 +31,15 @@ def create_from_template(slug: str, db: Session = Depends(get_db)):
     return wf
 
 
+@router.delete("/templates/{slug}", status_code=204)
+def delete_template(slug: str, db: Session = Depends(get_db)):
+    tpl = db.query(WorkflowTemplate).filter(WorkflowTemplate.slug == slug).first()
+    if not tpl:
+        raise HTTPException(404, "Template not found")
+    db.delete(tpl)
+    db.commit()
+
+
 @router.get("", response_model=list[WorkflowResponse])
 def list_workflows(db: Session = Depends(get_db)):
     return db.query(Workflow).order_by(Workflow.updated_at.desc()).all()

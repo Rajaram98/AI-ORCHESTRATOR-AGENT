@@ -106,20 +106,70 @@ export default function WorkflowsPage() {
     selectWorkflow(wf);
   };
 
+  const deleteTemplate = async (t: WorkflowTemplate) => {
+    const msg = t.is_builtin
+      ? `Delete built-in template "${t.name}"? Re-run seed to restore defaults.`
+      : `Delete template "${t.name}"?`;
+    if (!confirm(msg)) return;
+    await api.workflows.deleteTemplate(t.slug);
+    load();
+  };
+
+  const deleteWorkflow = async (wf: Workflow) => {
+    if (!confirm(`Delete workflow "${wf.name}"?`)) return;
+    await api.workflows.delete(wf.id);
+    if (selected?.id === wf.id) {
+      setSelected(null);
+      setName("");
+      setNodes([]);
+      setEdges([]);
+      setAgentMap({});
+    }
+    load();
+  };
+
   return (
     <div>
       <h2>Workflows</h2>
 
       <div className="card">
         <h3>Templates</h3>
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-          {templates.map((t) => (
-            <button key={t.slug} className="btn btn-secondary" onClick={() => fromTemplate(t.slug)}>
-              {t.name}
-            </button>
-          ))}
-        </div>
-        <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{templates[0]?.description}</p>
+        {templates.length === 0 ? (
+          <p style={{ color: "var(--muted)" }}>No templates. Run seed to restore defaults.</p>
+        ) : (
+          templates.map((t) => (
+            <div
+              key={t.slug}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "0.5rem",
+                marginBottom: "0.5rem",
+              }}
+            >
+              <div>
+                <strong>{t.name}</strong>
+                {t.is_builtin && (
+                  <span style={{ color: "var(--muted)", fontSize: "0.75rem", marginLeft: "0.5rem" }}>
+                    built-in
+                  </span>
+                )}
+                <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0.25rem 0 0" }}>
+                  {t.description}
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
+                <button className="btn btn-secondary" onClick={() => fromTemplate(t.slug)}>
+                  Use
+                </button>
+                <button className="btn btn-danger" onClick={() => deleteTemplate(t)}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="grid-2">
@@ -128,10 +178,22 @@ export default function WorkflowsPage() {
             <div
               key={wf.id}
               className="card"
-              style={{ cursor: "pointer", borderColor: selected?.id === wf.id ? "var(--accent)" : undefined }}
-              onClick={() => selectWorkflow(wf)}
+              style={{ borderColor: selected?.id === wf.id ? "var(--accent)" : undefined }}
             >
-              <strong>{wf.name}</strong>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <strong style={{ cursor: "pointer" }} onClick={() => selectWorkflow(wf)}>
+                  {wf.name}
+                </strong>
+                <button
+                  className="btn btn-danger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteWorkflow(wf);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>
