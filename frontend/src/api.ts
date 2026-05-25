@@ -97,12 +97,14 @@ export const api = {
         body: JSON.stringify({ workflow_id, input_task }),
       }),
     execute: (id: string) => request<Run>(`/api/runs/${id}/execute`, { method: "POST" }),
+    delete: (id: string) => request<void>(`/api/runs/${id}`, { method: "DELETE" }),
   },
   messages: {
     list: (params?: { run_id?: string; channel?: string; thread_id?: string }) => {
       const q = new URLSearchParams(params as Record<string, string>).toString();
       return request<Message[]>(`/api/messages${q ? `?${q}` : ""}`);
     },
+    delete: (id: string) => request<void>(`/api/messages/${id}`, { method: "DELETE" }),
   },
   telegram: {
     bind: (agent_id: string, chat_id: string) =>

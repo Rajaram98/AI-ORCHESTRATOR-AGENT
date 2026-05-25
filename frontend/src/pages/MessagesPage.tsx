@@ -15,6 +15,12 @@ export default function MessagesPage() {
     return () => clearInterval(t);
   }, [channel]);
 
+  const deleteMessage = async (m: Message) => {
+    if (!confirm("Delete this message?")) return;
+    await api.messages.delete(m.id);
+    load();
+  };
+
   return (
     <div>
       <h2>Message history</h2>
@@ -32,7 +38,12 @@ export default function MessagesPage() {
             <span>
               <strong>{m.sender_type}</strong> {m.sender_id && `(${m.sender_id})`}
             </span>
-            <span className="badge">{m.channel}</span>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <span className="badge">{m.channel}</span>
+              <button className="btn btn-danger" onClick={() => deleteMessage(m)}>
+                Delete
+              </button>
+            </div>
           </div>
           <p style={{ marginTop: "0.5rem" }}>{m.content}</p>
           <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>

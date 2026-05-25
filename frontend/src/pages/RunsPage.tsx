@@ -33,6 +33,13 @@ export default function RunsPage() {
     load();
   };
 
+  const deleteRun = async (r: Run) => {
+    if (!confirm(`Delete run ${r.id.slice(0, 8)}?`)) return;
+    await api.runs.delete(r.id);
+    if (selected?.id === r.id) setSelected(null);
+    load();
+  };
+
   return (
     <div>
       <h2>Runs &amp; monitoring</h2>
@@ -65,27 +72,40 @@ export default function RunsPage() {
       <div className="grid-2">
         <div>
           {runs.map((r) => (
-            <div
-              key={r.id}
-              className="card"
-              style={{ cursor: "pointer" }}
-              onClick={() => api.runs.get(r.id).then(setSelected)}
-            >
-              <span className={`badge ${r.status}`}>{r.status}</span>
-              <p style={{ fontSize: "0.85rem", margin: "0.5rem 0" }}>
-                {r.input_task?.slice(0, 80)}...
-              </p>
-              <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
-                tokens: {r.total_prompt_tokens + r.total_completion_tokens} · $
-                {Number(r.estimated_cost_usd).toFixed(4)}
-              </p>
+            <div key={r.id} className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ cursor: "pointer", flex: 1 }} onClick={() => api.runs.get(r.id).then(setSelected)}>
+                  <span className={`badge ${r.status}`}>{r.status}</span>
+                  <p style={{ fontSize: "0.85rem", margin: "0.5rem 0" }}>
+                    {r.input_task?.slice(0, 80)}...
+                  </p>
+                  <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
+                    tokens: {r.total_prompt_tokens + r.total_completion_tokens} · $
+                    {Number(r.estimated_cost_usd).toFixed(4)}
+                  </p>
+                </div>
+                <button
+                  className="btn btn-danger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteRun(r);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>
 
         {selected && (
           <div className="card">
-            <h3>Run {selected.id.slice(0, 8)}</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3>Run {selected.id.slice(0, 8)}</h3>
+              <button className="btn btn-danger" onClick={() => deleteRun(selected)}>
+                Delete
+              </button>
+            </div>
             <p>
               Status: <span className={`badge ${selected.status}`}>{selected.status}</span>
             </p>

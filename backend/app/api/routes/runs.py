@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
+from app.models.message import Message
 from app.models.run import Run
 from app.schemas.run import RunCreate, RunResponse
 from app.services.queue import enqueue_run, subscribe_run_events
@@ -66,6 +67,16 @@ def get_run(run_id: UUID, db: Session = Depends(get_db)):
     if not run:
         raise HTTPException(404, "Run not found")
     return run
+
+
+@router.delete("/{run_id}", status_code=204)
+def delete_run(run_id: UUID, db: Session = Depends(get_db)):
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if not run:
+        raise HTTPException(404, "Run not found")
+    db.query(Message).filter(Message.run_id == run_id).update({Message.run_id: None})
+    db.delete(run)
+    db.commit()
 
 
 @router.get("/{run_id}/events/stream")

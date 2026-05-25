@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -27,3 +27,12 @@ def list_messages(
     if channel:
         q = q.filter(Message.channel == channel)
     return q.limit(limit).all()
+
+
+@router.delete("/{message_id}", status_code=204)
+def delete_message(message_id: UUID, db: Session = Depends(get_db)):
+    msg = db.query(Message).filter(Message.id == message_id).first()
+    if not msg:
+        raise HTTPException(404, "Message not found")
+    db.delete(msg)
+    db.commit()
