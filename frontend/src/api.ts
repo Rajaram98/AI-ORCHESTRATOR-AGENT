@@ -61,7 +61,16 @@ export interface Message {
   channel: string;
   thread_id: string;
   created_at: string;
-  metadata?: { user_text?: string };
+  metadata?: {
+    user_text?: string;
+    node_id?: string;
+    agent_name?: string;
+    workflow_id?: string;
+    kind?: string;
+    turn?: number;
+    sequence?: number;
+  };
+  run_id?: string;
 }
 
 export const api = {
@@ -92,6 +101,7 @@ export const api = {
   runs: {
     list: () => request<Run[]>("/api/runs"),
     get: (id: string) => request<Run>(`/api/runs/${id}`),
+    messages: (id: string) => request<Message[]>(`/api/runs/${id}/messages`),
     create: (workflow_id: string, input_task: string) =>
       request<Run>("/api/runs", {
         method: "POST",
@@ -99,10 +109,25 @@ export const api = {
       }),
     execute: (id: string) => request<Run>(`/api/runs/${id}/execute`, { method: "POST" }),
     delete: (id: string) => request<void>(`/api/runs/${id}`, { method: "DELETE" }),
+    chat: (id: string, content: string) =>
+      request<Message>(`/api/runs/${id}/chat`, {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      }),
   },
   messages: {
-    list: (params?: { run_id?: string; channel?: string; thread_id?: string }) => {
-      const q = new URLSearchParams(params as Record<string, string>).toString();
+    list: (params?: {
+      run_id?: string;
+      channel?: string;
+      thread_id?: string;
+      order?: "asc" | "desc";
+      limit?: number;
+    }) => {
+      const q = new URLSearchParams(
+        Object.entries(params ?? {})
+          .filter(([, v]) => v != null && v !== "")
+          .map(([k, v]) => [k, String(v)])
+      ).toString();
       return request<Message[]>(`/api/messages${q ? `?${q}` : ""}`);
     },
     delete: (id: string) => request<void>(`/api/messages/${id}`, { method: "DELETE" }),

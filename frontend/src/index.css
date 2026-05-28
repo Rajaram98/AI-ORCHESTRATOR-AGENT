@@ -485,3 +485,240 @@ label {
     justify-self: start;
   }
 }
+
+.run-chat-card {
+  margin-top: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.run-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 420px;
+}
+
+.run-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1.25rem 1rem 0.5rem;
+  background: var(--bg);
+  min-height: 360px;
+  max-height: 520px;
+  overscroll-behavior: contain;
+}
+
+.run-chat-empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.run-chat-turn {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.run-chat-bubble {
+  max-width: min(720px, 88%);
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  line-height: 1.55;
+}
+
+.run-chat-bubble--user {
+  align-self: flex-end;
+  background: #2d3a4f;
+  border: 1px solid var(--border);
+  border-bottom-right-radius: 4px;
+}
+
+.run-chat-bubble--user p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.run-chat-bubble--assistant {
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+.run-chat-agent-block + .run-chat-agent-block {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.run-chat-agent-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.35rem;
+}
+
+.run-chat-agent-block p {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+}
+
+.run-chat-typing {
+  color: var(--muted);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.run-chat-typing-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.run-chat-typing-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: run-chat-pulse 1.2s infinite ease-in-out;
+}
+
+.run-chat-typing-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.run-chat-typing-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes run-chat-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.35;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.run-chat-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin: 0;
+  padding: 0 1rem;
+}
+
+.run-chat-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  padding: 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.run-chat-form textarea {
+  margin-bottom: 0;
+  flex: 1;
+  resize: none;
+  min-height: 2.75rem;
+}
+
+.run-chat-form .btn {
+  flex-shrink: 0;
+  margin-bottom: 0.1rem;
+}
+
+.messages-section-hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.messages-empty {
+  color: var(--muted);
+  margin: 0;
+}
+
+.messages-run-group h4 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+}
+
+.messages-run-task {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.messages-turn {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.messages-turn:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.messages-turn-question {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.messages-turn-agents {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.messages-agent-output {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.messages-agent-output-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.messages-agent-output-header .btn {
+  margin-left: auto;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.messages-agent-node {
+  font-family: ui-monospace, monospace;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.messages-agent-content {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+}
+
+.messages-agent-meta {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}

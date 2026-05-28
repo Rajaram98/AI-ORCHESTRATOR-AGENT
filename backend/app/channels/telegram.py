@@ -48,14 +48,23 @@ async def _reply_with_agent(agent: Agent, user_text: str, db: Session, chat_id: 
         last = msgs[-1] if msgs else None
         reply = last.content if last and hasattr(last, "content") else "No response."
 
+    thread_id = f"telegram:{chat_id}"
+    persist_message(
+        db,
+        content=user_text,
+        sender_type="human",
+        channel="telegram",
+        thread_id=thread_id,
+        metadata={"source": "telegram"},
+    )
     persist_message(
         db,
         content=reply,
         sender_type="agent",
         sender_id=agent.name,
         channel="telegram",
-        thread_id=f"telegram:{chat_id}",
-        metadata={"user_text": user_text},
+        thread_id=thread_id,
+        metadata={"user_text": user_text, "source": "telegram"},
     )
     return reply
 

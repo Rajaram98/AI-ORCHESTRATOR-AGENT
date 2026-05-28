@@ -8,8 +8,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.message import Message
-from app.models.run import Run
-from app.schemas.run import RunCreate, RunResponse
+from app.models.run import Run, RunStep
+from app.schemas.message import MessageResponse
+from app.schemas.run import RunChatCreate, RunCreate, RunResponse
+from app.services.messages import persist_message
 from app.services.queue import enqueue_run, subscribe_run_events
 from app.runtime.executor import execute_run
 
@@ -34,6 +36,16 @@ def create_run(payload: RunCreate, db: Session = Depends(get_db), sync: bool = F
     db.add(run)
     db.commit()
     db.refresh(run)
+    if payload.input_task.strip():
+        persist_message(
+            db,
+            content=payload.input_task.strip(),
+            sender_type="human",
+            channel="run",
+            run_id=run.id,
+            thread_id=str(run.id),
+            metadata={"kind": "task", "turn": 1},
+        )
     if sync:
         execute_run(db, run.id)
         db.refresh(run)
@@ -54,6 +66,55 @@ def execute_run_sync(run_id: UUID, db: Session = Depends(get_db)):
     if not run:
         raise HTTPException(404, "Run not found")
     return run
+
+
+@router.post("/{run_id}/chat", response_model=MessageResponse, status_code=201)
+def send_run_chat(run_id: UUID, payload: RunChatCreate, db: Session = Depends(get_db)):
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if not run:
+        raise HTTPException(404, "Run not found")
+    if run.status == "running":
+        raise HTTPException(409, "Run is still executing")
+    content = payload.content.strip()
+    if not content:
+        raise HTTPException(400, "Message cannot be empty")
+
+    human_count = (
+        db.query(Message)
+        .filter(Message.run_id == run_id, Message.sender_type == "human")
+        .count()
+    )
+    msg = persist_message(
+        db,
+        content=content,
+        sender_type="human",
+        channel="run",
+        run_id=run_id,
+        thread_id=str(run_id),
+        metadata={"turn": human_count + 1},
+    )
+    run.input_task = content
+    run.status = "pending"
+    run.error_message = None
+    run.completed_at = None
+    db.query(RunStep).filter(RunStep.run_id == run_id).delete()
+    db.commit()
+    enqueue_run(run.id)
+    return msg
+
+
+@router.get("/{run_id}/messages", response_model=list[MessageResponse])
+def list_run_messages(run_id: UUID, db: Session = Depends(get_db)):
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if not run:
+        raise HTTPException(404, "Run not found")
+    return (
+        db.query(Message)
+        .filter(Message.run_id == run_id)
+        .order_by(Message.created_at.asc())
+        .limit(500)
+        .all()
+    )
 
 
 @router.get("/{run_id}", response_model=RunResponse)
