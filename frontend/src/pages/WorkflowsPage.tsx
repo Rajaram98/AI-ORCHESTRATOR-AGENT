@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -10,19 +10,76 @@ import {
   Connection,
   Node,
   Edge,
+  type NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { api, Agent, Workflow, WorkflowTemplate } from "../api";
+import { WorkflowEndNode, WorkflowStepNode } from "../components/WorkflowStepNode";
 
-function defToFlow(definition: Workflow["definition"], agents: Agent[]) {
-  const nodes: Node[] = (definition.nodes || []).map((n: Record<string, unknown>) => ({
-    id: n.id as string,
-    type: "default",
-    position: (n.position as { x: number; y: number }) || { x: 0, y: 0 },
-    data: {
-      label: `${n.label || n.id}${n.agent_id ? ` (${agents.find((a) => a.id === n.agent_id)?.name || "agent"})` : ""}`,
-    },
-  }));
+const nodeTypes: NodeTypes = {
+  workflowStep: WorkflowStepNode,
+  workflowEnd: WorkflowEndNode,
+};
+
+type DefNode = {
+  id: string;
+  label?: string;
+  agent_id?: string;
+  is_entry?: boolean;
+  position?: { x: number; y: number };
+};
+
+function formatNodeId(id: string): string {
+  return id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function nodeLabel(n: DefNode): string {
+  return n.label || formatNodeId(n.id);
+}
+
+function agentById(agents: Agent[], id?: string): Agent | undefined {
+  if (!id) return undefined;
+  return agents.find((a) => a.id === id);
+}
+
+function stepData(
+  n: DefNode,
+  agents: Agent[],
+  agentMap: Record<string, string>
+): { label: string; agentName?: string; unassigned: boolean; isEntry?: boolean } {
+  const agentId = agentMap[n.id] ?? n.agent_id;
+  const agent = agentById(agents, agentId);
+  return {
+    label: nodeLabel(n),
+    agentName: agent?.name,
+    unassigned: !agentId,
+    isEntry: n.is_entry,
+  };
+}
+
+function defToFlow(
+  definition: Workflow["definition"],
+  agents: Agent[],
+  agentMap: Record<string, string>
+) {
+  const nodes: Node[] = (definition.nodes || []).map((raw) => {
+    const n = raw as DefNode;
+    const isEnd = n.id === "end" || (raw as { type?: string }).type === "end";
+    if (isEnd) {
+      return {
+        id: n.id,
+        type: "workflowEnd",
+        position: n.position || { x: 0, y: 0 },
+        data: { label: n.label || "End" },
+      };
+    }
+    return {
+      id: n.id,
+      type: "workflowStep",
+      position: n.position || { x: 0, y: 0 },
+      data: stepData(n, agents, agentMap),
+    };
+  });
   const edges: Edge[] = (definition.edges || []).map((e: Record<string, unknown>, i: number) => ({
     id: `e${i}`,
     source: e.source as string,
@@ -34,14 +91,18 @@ function defToFlow(definition: Workflow["definition"], agents: Agent[]) {
 
 function flowToDef(nodes: Node[], edges: Edge[], agentMap: Record<string, string>) {
   return {
-    nodes: nodes.map((n, i) => ({
-      id: n.id,
-      type: n.id === "end" ? "end" : "agent",
-      label: String(n.data?.label || n.id).split(" (")[0],
-      position: n.position,
-      is_entry: i === 0,
-      agent_id: agentMap[n.id] || undefined,
-    })),
+    nodes: nodes.map((n, i) => {
+      const data = n.data as { label?: string; isEntry?: boolean };
+      const isEnd = n.type === "workflowEnd" || n.id === "end";
+      return {
+        id: n.id,
+        type: isEnd ? "end" : "agent",
+        label: data?.label || formatNodeId(n.id),
+        position: n.position,
+        is_entry: isEnd ? undefined : data?.isEntry ?? i === 0,
+        agent_id: isEnd ? undefined : agentMap[n.id] || undefined,
+      };
+    }),
     edges: edges.map((e) => ({
       source: e.source,
       target: e.target,
@@ -58,6 +119,7 @@ export default function WorkflowsPage() {
   const [selected, setSelected] = useState<Workflow | null>(null);
   const [name, setName] = useState("");
   const [agentMap, setAgentMap] = useState<Record<string, string>>({});
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
@@ -71,18 +133,62 @@ export default function WorkflowsPage() {
     load();
   }, []);
 
-  const selectWorkflow = (wf: Workflow) => {
-    setSelected(wf);
-    setName(wf.name);
-    const { nodes: n, edges: e } = defToFlow(wf.definition, agents);
-    setNodes(n);
-    setEdges(e);
-    const map: Record<string, string> = {};
-    for (const node of wf.definition.nodes || []) {
-      const nd = node as { id: string; agent_id?: string };
-      if (nd.agent_id) map[nd.id] = nd.agent_id;
-    }
-    setAgentMap(map);
+  const agentSteps = useMemo(
+    () => nodes.filter((n) => n.type === "workflowStep"),
+    [nodes]
+  );
+
+  const assignedCount = useMemo(
+    () => agentSteps.filter((n) => Boolean(agentMap[n.id])).length,
+    [agentSteps, agentMap]
+  );
+
+  const allAssigned = agentSteps.length > 0 && assignedCount === agentSteps.length;
+
+  const selectWorkflow = useCallback(
+    (wf: Workflow, currentAgents: Agent[]) => {
+      setSelected(wf);
+      setName(wf.name);
+      const map: Record<string, string> = {};
+      for (const node of wf.definition.nodes || []) {
+        const nd = node as DefNode;
+        if (nd.agent_id) map[nd.id] = nd.agent_id;
+      }
+      setAgentMap(map);
+      const { nodes: n, edges: e } = defToFlow(wf.definition, currentAgents, map);
+      setNodes(n);
+      setEdges(e);
+      setFocusedNodeId(null);
+    },
+    [setNodes, setEdges]
+  );
+
+  useEffect(() => {
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.type !== "workflowStep") return n;
+        const data = n.data as { label: string; isEntry?: boolean };
+        const agentId = agentMap[n.id];
+        const agent = agentById(agents, agentId);
+        return {
+          ...n,
+          data: {
+            ...data,
+            agentName: agent?.name,
+            unassigned: !agentId,
+          },
+        };
+      })
+    );
+  }, [agentMap, agents, setNodes]);
+
+  const setAgentForNode = (nodeId: string, agentId: string) => {
+    setAgentMap((prev) => {
+      const next = { ...prev };
+      if (agentId) next[nodeId] = agentId;
+      else delete next[nodeId];
+      return next;
+    });
   };
 
   const onConnect = useCallback(
@@ -103,7 +209,7 @@ export default function WorkflowsPage() {
   const fromTemplate = async (slug: string) => {
     const wf = await api.workflows.fromTemplate(slug);
     load();
-    selectWorkflow(wf);
+    selectWorkflow(wf, agents);
   };
 
   const deleteTemplate = async (t: WorkflowTemplate) => {
@@ -124,6 +230,7 @@ export default function WorkflowsPage() {
       setNodes([]);
       setEdges([]);
       setAgentMap({});
+      setFocusedNodeId(null);
     }
     load();
   };
@@ -181,7 +288,7 @@ export default function WorkflowsPage() {
               style={{ borderColor: selected?.id === wf.id ? "var(--accent)" : undefined }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <strong style={{ cursor: "pointer" }} onClick={() => selectWorkflow(wf)}>
+                <strong style={{ cursor: "pointer" }} onClick={() => selectWorkflow(wf, agents)}>
                   {wf.name}
                 </strong>
                 <button
@@ -201,32 +308,104 @@ export default function WorkflowsPage() {
         <div className="card">
           <label>Workflow name</label>
           <input value={name} onChange={(e) => setName(e.target.value)} />
-          <label>Assign agents to nodes (node id → agent)</label>
-          {nodes
-            .filter((n) => n.id !== "end")
-            .map((n) => (
-              <div key={n.id} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                <span style={{ width: 100 }}>{n.id}</span>
-                <select
-                  value={agentMap[n.id] || ""}
-                  onChange={(e) => setAgentMap({ ...agentMap, [n.id]: e.target.value })}
+
+          {agentSteps.length > 0 ? (
+            <>
+              <div className="workflow-assign-header">
+                <div>
+                  <h3 className="workflow-assign-title">Agent assignments</h3>
+                  <p className="workflow-assign-hint">
+                    Each step runs one agent. Pick who handles research, writing, review, and so on.
+                    The diagram updates as you assign.
+                  </p>
+                </div>
+                <span
+                  className={`badge ${allAssigned ? "workflow-assign-badge--ok" : "workflow-assign-badge--warn"}`}
                 >
-                  <option value="">— select —</option>
-                  {agents.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
+                  {assignedCount} / {agentSteps.length} assigned
+                </span>
               </div>
-            ))}
+
+              {!allAssigned && (
+                <p className="workflow-assign-warning">
+                  Unassigned steps will not run correctly when you execute this workflow.
+                </p>
+              )}
+
+              <ul className="workflow-assign-list">
+                {agentSteps.map((n) => {
+                  const data = n.data as { label: string; isEntry?: boolean };
+                  const agentId = agentMap[n.id] || "";
+                  const assigned = Boolean(agentId);
+                  const isFocused = focusedNodeId === n.id;
+
+                  return (
+                    <li
+                      key={n.id}
+                      id={`assign-${n.id}`}
+                      className={`workflow-assign-row ${assigned ? "workflow-assign-row--ok" : "workflow-assign-row--missing"} ${isFocused ? "workflow-assign-row--focused" : ""}`}
+                    >
+                      <div className="workflow-assign-row-main">
+                        <div className="workflow-assign-step">
+                          <span className="workflow-assign-step-name">{data.label}</span>
+                          {data.isEntry && <span className="workflow-step-entry">Start</span>}
+                        </div>
+                        <span className="workflow-assign-step-id">{n.id}</span>
+                      </div>
+                      <select
+                        className="workflow-assign-select"
+                        value={agentId}
+                        onChange={(e) => setAgentForNode(n.id, e.target.value)}
+                        aria-label={`Agent for ${data.label}`}
+                      >
+                        <option value="">Choose an agent…</option>
+                        {agents.length === 0 ? (
+                          <option disabled value="">
+                            No agents yet — create one on the Agents page
+                          </option>
+                        ) : (
+                          agents.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name}
+                              {a.role ? ` · ${a.role}` : ""}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <span
+                        className={`workflow-assign-status ${assigned ? "workflow-assign-status--ok" : "workflow-assign-status--missing"}`}
+                        aria-hidden
+                      >
+                        {assigned ? "Assigned" : "Required"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : (
+            <p className="workflow-assign-empty">
+              Select a workflow or use a template to configure agent assignments.
+            </p>
+          )}
+
           <div className="flow-container">
             <ReactFlow
               nodes={nodes}
               edges={edges}
+              nodeTypes={nodeTypes}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
+              onNodeClick={(_, node) => {
+                if (node.type === "workflowStep") {
+                  setFocusedNodeId(node.id);
+                  document.getElementById(`assign-${node.id}`)?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "nearest",
+                  });
+                }
+              }}
               fitView
             >
               <Background />
@@ -234,7 +413,7 @@ export default function WorkflowsPage() {
               <MiniMap />
             </ReactFlow>
           </div>
-          <button className="btn" onClick={save} style={{ marginTop: "1rem" }}>
+          <button className="btn" onClick={save} style={{ marginTop: "1rem" }} disabled={!name.trim()}>
             Save workflow
           </button>
         </div>

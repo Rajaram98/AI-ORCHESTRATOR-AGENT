@@ -252,3 +252,236 @@ label {
   background: #450a0a;
   color: var(--danger);
 }
+
+.workflow-assign-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin: 1rem 0 0.75rem;
+}
+
+.workflow-assign-title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.workflow-assign-hint {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.85rem;
+  max-width: 36rem;
+}
+
+.workflow-assign-badge--ok {
+  background: #14532d;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.workflow-assign-badge--warn {
+  background: #422006;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.workflow-assign-warning {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  background: #422006;
+  color: #fcd34d;
+  font-size: 0.85rem;
+}
+
+.workflow-assign-empty {
+  color: var(--text);
+  font-size: 0.9rem;
+  margin: 1rem 0;
+}
+
+.workflow-assign-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.workflow-assign-row {
+  display: grid;
+  grid-template-columns: 1fr minmax(160px, 220px) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.15s;
+}
+
+.workflow-assign-row--missing {
+  border-color: #854d0e;
+  background: rgba(66, 32, 6, 0.25);
+}
+
+.workflow-assign-row--ok {
+  border-color: #166534;
+}
+
+.workflow-assign-row--focused {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.workflow-assign-row-main {
+  min-width: 0;
+}
+
+.workflow-assign-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.workflow-assign-step-name {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.workflow-assign-step-id {
+  display: block;
+  font-size: 0.75rem;
+  color: #e7ecf3;
+  margin-top: 0.15rem;
+  font-family: ui-monospace, monospace;
+}
+
+.workflow-assign-select {
+  margin-bottom: 0;
+}
+
+.workflow-assign-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.workflow-assign-status--ok {
+  color: #86efac;
+}
+
+.workflow-assign-status--missing {
+  color: #fde68a;
+}
+
+.workflow-step-node {
+  min-width: 140px;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  font-size: 0.85rem;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.workflow-step-node--assigned {
+  border-color: #166534;
+}
+
+.workflow-step-node--unassigned {
+  border-color: #ca8a04;
+  background: rgba(66, 32, 6, 0.35);
+}
+
+.workflow-step-entry {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: var(--accent);
+  color: white;
+  margin-bottom: 0.35rem;
+}
+
+.workflow-step-label {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: #ffffff;
+}
+
+.workflow-step-agent-label {
+  display: block;
+  font-size: 0.65rem;
+  color: #e7ecf3;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.workflow-step-agent-name {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.workflow-step-missing {
+  color: #fde68a;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.workflow-end-node {
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  font-size: 0.8rem;
+  color: #ffffff;
+}
+
+/* React Flow defaults assume a light canvas — override for dark UI */
+.flow-container .react-flow__edge-text {
+  fill: #ffffff;
+}
+
+.flow-container .react-flow__edge-textbg {
+  fill: var(--surface);
+}
+
+.flow-container .react-flow__controls-button {
+  background: var(--surface);
+  border-color: var(--border);
+  fill: #ffffff;
+}
+
+.flow-container .react-flow__controls-button:hover {
+  background: var(--border);
+}
+
+.flow-container .react-flow__controls-button svg {
+  fill: #ffffff;
+}
+
+.flow-container .react-flow__attribution {
+  color: #e7ecf3;
+}
+
+.flow-container .react-flow__attribution a {
+  color: #ffffff;
+}
+
+@media (max-width: 700px) {
+  .workflow-assign-row {
+    grid-template-columns: 1fr;
+  }
+  .workflow-assign-status {
+    justify-self: start;
+  }
+}
