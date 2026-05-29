@@ -1,4 +1,4 @@
-"""MVP scheduled runs — checks agents with cron-like schedules."""
+"""Scheduled workflow and agent runs."""
 
 import logging
 from datetime import datetime, timezone
@@ -9,12 +9,20 @@ from app.models.agent import Agent
 from app.models.run import Run
 from app.models.workflow import Workflow
 from app.services.queue import enqueue_run
+from app.services.workflow_schedules import process_due_workflow_schedules
 
 logger = logging.getLogger(__name__)
 
 
 def process_due_schedules(db: Session) -> int:
-    """Start a run for agents whose schedule interval has elapsed (simplified)."""
+    """Process workflow schedules and legacy agent interval schedules."""
+    count = process_due_workflow_schedules(db)
+    count += _process_agent_schedules(db)
+    return count
+
+
+def _process_agent_schedules(db: Session) -> int:
+    """Legacy: start runs for agents with interval schedules in config."""
     count = 0
     agents = db.query(Agent).all()
     workflow = db.query(Workflow).first()

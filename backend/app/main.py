@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import agents, messages, runs, telegram, workflows
+from app.api.routes import agents, messages, runs, schedules, telegram, workflows
 from app.seed import seed
 
 
@@ -35,6 +35,7 @@ app.include_router(agents.router, prefix="/api")
 app.include_router(workflows.router, prefix="/api")
 app.include_router(runs.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
+app.include_router(schedules.router, prefix="/api")
 app.include_router(telegram.router, prefix="/api")
 
 

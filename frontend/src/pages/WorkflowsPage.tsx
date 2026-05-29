@@ -15,6 +15,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { api, Agent, Workflow, WorkflowTemplate } from "../api";
 import { WorkflowEndNode, WorkflowStepNode } from "../components/WorkflowStepNode";
+import WorkflowSchedulePanel from "../components/WorkflowSchedulePanel";
 
 const nodeTypes: NodeTypes = {
   workflowStep: WorkflowStepNode,
@@ -695,6 +696,12 @@ export default function WorkflowsPage() {
             <p className="workflow-actions-hint" style={{ marginTop: "0.5rem" }}>
               Assign an agent to every step before saving.
             </p>
+          )}
+
+          {selected && (
+            <div className="card workflow-schedule-card">
+              <WorkflowSchedulePanel workflowId={selected.id} workflowName={selected.name} />
+            </div>
           )}
         </div>
       </div>
