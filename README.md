@@ -265,4 +265,4 @@ AI-Orchestrator/
 
 ## License
 
-MIT — hiring challenge submission.
+Rajaram — hiring challenge submission.
