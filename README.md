@@ -13,6 +13,36 @@ A local-first platform for creating AI agents, wiring them into multi-agent work
 
 ---
 
+## Quick start (Docker)
+
+Minimum steps to run the full stack locally in **one command**:
+
+1. **One-time** — Create a `.env` file in the project root with at least:
+
+   ```bash
+   OPENAI_API_KEY=sk-...
+   ```
+
+   (`api` and `worker` load this via `docker-compose.yml`. The stack may start without a key, but LLM workflow runs and Telegram replies need it.)
+
+2. **From the repo root**, start everything:
+
+   ```bash
+   make up
+   ```
+
+   Same as `docker compose up --build -d`. This builds images, starts Postgres, Redis, API, worker, and frontend; runs migrations; and seeds templates/agents when the database is empty.
+
+| Service | URL |
+|---------|-----|
+| **Web UI** | http://localhost:5173 |
+| **API** | http://localhost:8000 |
+| **OpenAPI** | http://localhost:8000/docs |
+
+Stop with `make down`. More env options, Telegram, and non-Docker setup are below in [Getting started](#getting-started).
+
+---
+
 ## Architecture
 
 The system splits into four layers. The API never blocks on long LLM calls; the worker owns graph execution.
@@ -134,13 +164,15 @@ ReAct is ideal here because roles like Researcher and Executor need **optional**
 
 ## Getting started
 
+See [Quick start (Docker)](#quick-start-docker) for the shortest path (`make up`). This section adds full configuration detail.
+
 ### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose
 - An [OpenAI API key](https://platform.openai.com/api-keys) (required for live LLM runs)
 - Optional: [Telegram bot token](https://t.me/BotFather) for the messaging channel
 
-### 1. Configure environment
+### Environment variables
 
 Create a `.env` file in the project root (see variables below). Example:
 
@@ -166,21 +198,7 @@ LOG_LEVEL=INFO
 | `TELEGRAM_POLLING` | No | Set `false` to disable Telegram while keeping the worker |
 | `DATABASE_URL` / `REDIS_URL` | No in Compose | Overridden in `docker-compose.yml` for containers |
 
-### 2. Start the stack
-
-```bash
-make up
-```
-
-This builds images, starts Postgres and Redis, runs Alembic migrations, seeds templates/agents if the DB is empty, and launches API, worker, and frontend.
-
-| Service | URL |
-|---------|-----|
-| **Web UI** | http://localhost:5173 |
-| **API** | http://localhost:8000 |
-| **OpenAPI** | http://localhost:8000/docs |
-
-### 3. First workflow run
+### First workflow run
 
 1. Open the UI → confirm seeded agents (Researcher, Writer, Planner, Executor, Reviewer).
 2. **Workflows** → open a template → assign agents on nodes if needed → **Save**.
@@ -252,14 +270,6 @@ AI-Orchestrator/
 ├── docker-compose.yml
 └── Makefile
 ```
-
----
-
-## Demo and tests
-
-- **Recorded demo flow**: [docs/DEMO.md](docs/DEMO.md)
-- **Tests**: `make test` or `cd backend && pip install -r requirements.txt && pytest -v`  
-  Covers agent CRUD, workflows/runs, message persistence, Telegram bind.
 
 ---
 
