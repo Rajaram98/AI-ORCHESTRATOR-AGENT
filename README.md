@@ -2,6 +2,13 @@
 
 A local-first platform for creating AI agents, wiring them into multi-agent workflows, and running them with a real **LangGraph** runtime—not a UI mock. Built for the Yuno AI Engineer hiring challenge: agents collaborate asynchronously, conversation history is persisted, and at least one agent can talk to humans over **Telegram**.
 
+---
+
+# END TO END FULLY WORKING DEMO:
+https://drive.google.com/file/d/1YkQq3fZ2ynJetKAxMKfMmnR5qZ9_Hw8r/view?usp=sharing
+
+---
+
 ## What you get
 
 - **Agent management** — CRUD, system prompts, models, tools, memory/schedules/guardrails, channel bindings
