@@ -10,6 +10,10 @@ class RunCreate(BaseModel):
     input_task: str = ""
 
 
+class RunChatCreate(BaseModel):
+    content: str
+
+
 class RunStepResponse(BaseModel):
     id: UUID
     node_id: str

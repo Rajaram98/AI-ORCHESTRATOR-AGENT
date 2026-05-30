@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
+from langchain_core.messages import BaseMessage, HumanMessage
 from sqlalchemy.orm import Session
 
 from app.models.agent import Agent
@@ -36,7 +37,7 @@ def execute_run(db: Session, run_id: UUID) -> Run:
     run = db.query(Run).filter(Run.id == run_id).first()
     if not run:
         raise ValueError(f"Run {run_id} not found")
-    if run.status in ("running", "completed"):
+    if run.status == "running":
         return run
 
     workflow = db.query(Workflow).filter(Workflow.id == run.workflow_id).first()
@@ -67,7 +68,8 @@ def execute_run(db: Session, run_id: UUID) -> Run:
             max_iter = g.get("guardrails", {}).get("max_iterations", max_iter)
 
     try:
-        compiled = compile_workflow(definition, agents_by_id, max_iterations=max_iter)
+        db.query(RunStep).filter(RunStep.run_id == run_id).delete()
+        db.commit()
 
         for node in definition.get("nodes", []):
             if node.get("type") == "agent" and node.get("agent_id"):
@@ -80,10 +82,74 @@ def execute_run(db: Session, run_id: UUID) -> Run:
                 db.add(step)
         db.commit()
 
+        history = (
+            db.query(Message)
+            .filter(Message.run_id == run_id)
+            .order_by(Message.created_at)
+            .all()
+        )
+        lang_messages: list[BaseMessage] = []
+        prior_agent_lines: list[str] = []
+        for m in history:
+            if m.sender_type == "human":
+                lang_messages.append(HumanMessage(content=m.content))
+            elif m.sender_type == "agent":
+                label = m.sender_id or m.metadata_.get("agent_name") or "agent"
+                prior_agent_lines.append(f"[{label}]: {m.content}")
+
+        execution_turn = sum(1 for m in history if m.sender_type == "human")
+        prior_context = (run.context or {}).get("shared_context", "") if run.context else ""
+        shared_context = prior_context or "\n\n".join(prior_agent_lines).strip()
+
+        agent_outputs: dict[str, str] = {}
+        persisted_nodes: set[tuple[int, str]] = set()
+        agent_sequence = 0
+
+        def on_agent_output(node_id: str, agent_name: str, content: str) -> None:
+            key = (execution_turn, node_id)
+            if key in persisted_nodes:
+                return
+            persisted_nodes.add(key)
+            nonlocal agent_sequence
+            agent_sequence += 1
+            agent_outputs[node_id] = content
+            persist_message(
+                db,
+                content=content,
+                sender_type="agent",
+                sender_id=agent_name,
+                channel="run",
+                run_id=run_id,
+                thread_id=str(run_id),
+                metadata={
+                    "workflow_id": str(workflow.id),
+                    "node_id": node_id,
+                    "agent_name": agent_name,
+                    "turn": execution_turn,
+                    "sequence": agent_sequence,
+                },
+            )
+            _log_event(
+                db,
+                run_id,
+                "agent_message",
+                {
+                    "sender": agent_name,
+                    "preview": content[:200],
+                    "node_id": node_id,
+                    "turn": execution_turn,
+                    "sequence": agent_sequence,
+                },
+            )
+
+        compiled = compile_workflow(
+            definition, agents_by_id, max_iterations=max_iter, on_agent_output=on_agent_output
+        )
+
         initial_state = {
-            "messages": [],
+            "messages": lang_messages,
             "task": run.input_task or "",
-            "shared_context": "",
+            "shared_context": shared_context,
             "last_agent_output": "",
             "iteration_count": 0,
             "current_node": "",
@@ -103,28 +169,27 @@ def execute_run(db: Session, run_id: UUID) -> Run:
 
         final_output = (result.get("last_agent_output") or "").strip()
         if final_output:
-            db.query(Message).filter(Message.run_id == run_id).delete()
             persist_message(
                 db,
                 content=final_output,
                 sender_type="agent",
                 sender_id="workflow",
-                channel="internal",
+                channel="run",
                 run_id=run_id,
                 thread_id=str(run_id),
-                metadata={"workflow_id": str(workflow.id)},
-            )
-            _log_event(
-                db,
-                run_id,
-                "agent_message",
-                {"sender": "workflow", "preview": final_output[:200]},
+                metadata={
+                    "workflow_id": str(workflow.id),
+                    "turn": execution_turn,
+                    "kind": "workflow_final",
+                },
             )
 
         for step in db.query(RunStep).filter(RunStep.run_id == run_id).all():
             step.status = "completed"
             step.completed_at = datetime.now(timezone.utc)
-            if result.get("last_agent_output"):
+            if step.node_id in agent_outputs:
+                step.output_preview = agent_outputs[step.node_id][:500]
+            elif result.get("last_agent_output"):
                 step.output_preview = result["last_agent_output"][:500]
 
         run.status = "completed"

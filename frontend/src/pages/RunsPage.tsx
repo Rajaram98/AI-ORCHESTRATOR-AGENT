@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import RunChat from "../components/RunChat";
 import { api, Run, Workflow } from "../api";
 
 export default function RunsPage() {
@@ -7,6 +8,7 @@ export default function RunsPage() {
   const [workflowId, setWorkflowId] = useState("");
   const [task, setTask] = useState("Summarize the benefits of multi-agent AI systems.");
   const [selected, setSelected] = useState<Run | null>(null);
+  const [chatSeed, setChatSeed] = useState<string | null>(null);
 
   const load = () => api.runs.list().then(setRuns);
 
@@ -23,6 +25,7 @@ export default function RunsPage() {
   const startRun = async () => {
     if (!workflowId) return;
     const run = await api.runs.create(workflowId, task);
+    setChatSeed(task.trim());
     setSelected(run);
     load();
   };
@@ -69,15 +72,32 @@ export default function RunsPage() {
         )}
       </div>
 
+      {selected && (
+        <div className="card run-chat-card">
+          <RunChat
+            run={selected}
+            seedUserText={chatSeed ?? undefined}
+            onRunUpdate={(r) => {
+              setSelected(r);
+              if (r.status === "completed" && chatSeed) setChatSeed(null);
+            }}
+          />
+        </div>
+      )}
+
       <div className="grid-2">
         <div>
           {runs.map((r) => (
             <div key={r.id} className="card">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div style={{ cursor: "pointer", flex: 1 }} onClick={() => api.runs.get(r.id).then(setSelected)}>
+                <div
+                  style={{ cursor: "pointer", flex: 1 }}
+                  onClick={() => api.runs.get(r.id).then(setSelected)}
+                >
                   <span className={`badge ${r.status}`}>{r.status}</span>
                   <p style={{ fontSize: "0.85rem", margin: "0.5rem 0" }}>
-                    {r.input_task?.slice(0, 80)}...
+                    {r.input_task?.slice(0, 80)}
+                    {(r.input_task?.length ?? 0) > 80 ? "…" : ""}
                   </p>
                   <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
                     tokens: {r.total_prompt_tokens + r.total_completion_tokens} · $

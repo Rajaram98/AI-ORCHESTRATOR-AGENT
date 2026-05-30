@@ -18,8 +18,10 @@ def list_messages(
     thread_id: Optional[str] = None,
     channel: Optional[str] = None,
     limit: int = Query(100, le=500),
+    order: str = Query("desc", pattern="^(asc|desc)$"),
 ):
-    q = db.query(Message).order_by(Message.created_at.desc())
+    order_col = Message.created_at.asc() if order == "asc" else Message.created_at.desc()
+    q = db.query(Message).order_by(order_col)
     if run_id:
         q = q.filter(Message.run_id == run_id)
     if thread_id:

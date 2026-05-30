@@ -1,5 +1,6 @@
 """Compile workflow JSON definitions into LangGraph StateGraph."""
 
+from collections.abc import Callable
 from typing import Annotated, Any, TypedDict
 from uuid import UUID
 
@@ -23,7 +24,14 @@ class WorkflowState(TypedDict):
     current_node: str
 
 
-def _build_agent_node(agent: Agent, node_id: str):
+AgentOutputCallback = Callable[[str, str, str], None]
+
+
+def _build_agent_node(
+    agent: Agent,
+    node_id: str,
+    on_agent_output: AgentOutputCallback | None = None,
+):
     def node(state: WorkflowState) -> dict:
         llm = ChatOpenAI(
             model=agent.model or settings.default_model,
@@ -63,6 +71,9 @@ def _build_agent_node(agent: Agent, node_id: str):
         if len(content) > max_output:
             content = content[:max_output] + "..."
 
+        if on_agent_output:
+            on_agent_output(node_id, agent.name, content)
+
         new_shared = (state.get("shared_context") or "") + f"\n\n[{agent.name}]: {content}"
 
         return {
@@ -94,6 +105,7 @@ def compile_workflow(
     definition: dict,
     agents_by_id: dict[UUID, Agent],
     max_iterations: int = 15,
+    on_agent_output: AgentOutputCallback | None = None,
 ) -> Any:
     nodes = definition.get("nodes", [])
     edges = definition.get("edges", [])
@@ -110,7 +122,7 @@ def compile_workflow(
             agent_id = n.get("agent_id")
             if agent_id and UUID(str(agent_id)) in agents_by_id:
                 agent = agents_by_id[UUID(str(agent_id))]
-                graph.add_node(nid, _build_agent_node(agent, nid))
+                graph.add_node(nid, _build_agent_node(agent, nid, on_agent_output))
             else:
                 graph.add_node(nid, lambda s: {**s, "last_agent_output": "Missing agent"})
         if n.get("is_entry"):

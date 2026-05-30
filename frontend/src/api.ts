@@ -53,6 +53,20 @@ export interface Run {
   events: { event_type: string; payload: Record<string, unknown>; created_at: string }[];
 }
 
+export interface WorkflowSchedule {
+  id: string;
+  workflow_id: string;
+  input_task: string;
+  schedule_type: "once" | "interval";
+  scheduled_at?: string;
+  interval_minutes?: number;
+  enabled: boolean;
+  last_run_at?: string;
+  next_run_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Message {
   id: string;
   content: string;
@@ -61,7 +75,16 @@ export interface Message {
   channel: string;
   thread_id: string;
   created_at: string;
-  metadata?: { user_text?: string };
+  metadata?: {
+    user_text?: string;
+    node_id?: string;
+    agent_name?: string;
+    workflow_id?: string;
+    kind?: string;
+    turn?: number;
+    sequence?: number;
+  };
+  run_id?: string;
 }
 
 export const api = {
@@ -89,9 +112,34 @@ export const api = {
       request<void>(`/api/workflows/templates/${slug}`, { method: "DELETE" }),
     delete: (id: string) => request<void>(`/api/workflows/${id}`, { method: "DELETE" }),
   },
+  schedules: {
+    list: (workflow_id?: string) => {
+      const q = workflow_id ? `?workflow_id=${workflow_id}` : "";
+      return request<WorkflowSchedule[]>(`/api/schedules${q}`);
+    },
+    create: (body: {
+      workflow_id: string;
+      input_task: string;
+      schedule_type: "once" | "interval";
+      scheduled_at?: string;
+      interval_minutes?: number;
+      enabled?: boolean;
+    }) =>
+      request<WorkflowSchedule>("/api/schedules", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    update: (id: string, body: Partial<Pick<WorkflowSchedule, "input_task" | "schedule_type" | "scheduled_at" | "interval_minutes" | "enabled">>) =>
+      request<WorkflowSchedule>(`/api/schedules/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    delete: (id: string) => request<void>(`/api/schedules/${id}`, { method: "DELETE" }),
+  },
   runs: {
     list: () => request<Run[]>("/api/runs"),
     get: (id: string) => request<Run>(`/api/runs/${id}`),
+    messages: (id: string) => request<Message[]>(`/api/runs/${id}/messages`),
     create: (workflow_id: string, input_task: string) =>
       request<Run>("/api/runs", {
         method: "POST",
@@ -99,10 +147,25 @@ export const api = {
       }),
     execute: (id: string) => request<Run>(`/api/runs/${id}/execute`, { method: "POST" }),
     delete: (id: string) => request<void>(`/api/runs/${id}`, { method: "DELETE" }),
+    chat: (id: string, content: string) =>
+      request<Message>(`/api/runs/${id}/chat`, {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      }),
   },
   messages: {
-    list: (params?: { run_id?: string; channel?: string; thread_id?: string }) => {
-      const q = new URLSearchParams(params as Record<string, string>).toString();
+    list: (params?: {
+      run_id?: string;
+      channel?: string;
+      thread_id?: string;
+      order?: "asc" | "desc";
+      limit?: number;
+    }) => {
+      const q = new URLSearchParams(
+        Object.entries(params ?? {})
+          .filter(([, v]) => v != null && v !== "")
+          .map(([k, v]) => [k, String(v)])
+      ).toString();
       return request<Message[]>(`/api/messages${q ? `?${q}` : ""}`);
     },
     delete: (id: string) => request<void>(`/api/messages/${id}`, { method: "DELETE" }),
